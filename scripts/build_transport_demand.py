@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 def build_nodal_transport_data(fn, pop_layout, year):
     # get numbers of car and fuel efficiency per country
     transport_data = pd.read_csv(fn, index_col=[0, 1])
+    # filter for year
     transport_data = transport_data.xs(year, level="year")
 
     # break number of cars down to nodal level based on population density
@@ -43,7 +44,7 @@ def build_nodal_transport_data(fn, pop_layout, year):
     return nodal_transport_data
 
 
-def build_transport_demand(traffic_fn, airtemp_fn, nodes, nodal_transport_data):
+def build_transport_demand(traffic_fn, airtemp_fn, snapshots, nodes, nodal_transport_data, options, pop_weighted_energy_totals, nyears):
     """
     Returns transport demand per bus in unit km driven [100 km].
     """
@@ -61,7 +62,7 @@ def build_transport_demand(traffic_fn, airtemp_fn, nodes, nodal_transport_data):
     # get heating demand for correction to demand time series
     temperature = xr.open_dataarray(airtemp_fn).to_pandas()
 
-    # correction factors for vehicle heating
+    # correction factors for vehicle heating per node and time
     dd_ICE = transport_degree_factor(
         temperature,
         options["transport_heating_deadband_lower"],
