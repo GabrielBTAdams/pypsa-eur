@@ -9,6 +9,7 @@ import pytest
 import pandas as pd
 import numpy as np
 import pypsa
+from scripts.prepare_sector_network import add_EVs
 from types import SimpleNamespace
 
 
@@ -42,7 +43,7 @@ def create_test_options():
         "bev_charge_rate": 0.011,  # 11 kW
         "bev_charge_efficiency": 0.9,
         "bev_dsm": False,
-        "bev_energy": 0.05,  # 50 kWh
+        "bev_energy": 0.05,  # in MWh
         "bev_dsm_availability": 0.5,
         "v2g": False,
     }
@@ -67,16 +68,23 @@ def create_test_data(nodes, snapshots=24):
     )
     
     # Power demand profile (base transport energy demand)
-    p_set = pd.Series(
-        np.random.uniform(100, 500, snapshots),
-        index=index
+    # p_set = pd.Series(
+    #     np.random.uniform(100, 500, snapshots),
+    #     index=index
+    # )
+    p_set = pd.DataFrame(
+        np.random.uniform(100, 500, (snapshots, len(nodes))),
+        index=index,
+        columns=nodes
     )
     
     # Electric vehicle share per node
-    electric_share = pd.Series([0.3, 0.4, 0.35], index=nodes)
+    electric_share = pd.Series(np.random.uniform(0.2, 0.5, size=len(nodes)), index=nodes)
+    # electric_share = pd.Series([0.3, 0.4, 0.35], index=nodes)
     
     # Number of cars per node
-    number_cars = pd.Series([100000, 80000, 90000], index=nodes)
+    number_cars = pd.Series(np.random.randint(50000, 100000, size=len(nodes)), index=nodes)
+    # number_cars = pd.Series([100000, 80000, 90000], index=nodes)
     
     # Temperature data
     temperature = pd.DataFrame(
@@ -100,20 +108,12 @@ class TestAddEVsBasic:
         avail_profile, dsm_profile, p_set, electric_share, number_cars, temperature = \
             create_test_data(nodes)
         
-        # Import the function (in real testing, this would be imported from the module)
-        # For this example, we'll assume it's available
-        from scripts.prepare_sector_network import add_EVs
-        
-        add_EVs(n, avail_profile, dsm_profile, p_set, electric_share, 
-                number_cars, temperature, spatial, options)
-        
-        # Note: Since we can't actually import the function in this context,
-        # we'll demonstrate the test structure
+        add_EVs(n, avail_profile, dsm_profile, p_set, electric_share, number_cars, temperature, spatial, options)
         
         # Check that EV battery buses were added
         expected_buses = [node + " EV battery" for node in nodes]
-        # assert all(bus in n.buses.index for bus in expected_buses)
-        # assert n.buses.loc[expected_buses, "carrier"].eq("EV battery").all()
+        assert all(bus in n.buses.index for bus in expected_buses)
+        assert n.buses.loc[expected_buses, "carrier"].eq("EV battery").all()
         
         print("✓ Test: Basic EV buses created")
     
@@ -126,11 +126,13 @@ class TestAddEVsBasic:
         avail_profile, dsm_profile, p_set, electric_share, number_cars, temperature = \
             create_test_data(nodes)
         
+        add_EVs(n, avail_profile, dsm_profile, p_set, electric_share, number_cars, temperature, spatial, options)
+        
         # Expected load names
         expected_loads = [node + " land transport EV" for node in nodes]
         
-        # assert all(load in n.loads.index for load in expected_loads)
-        # assert n.loads.loc[expected_loads, "carrier"].eq("land transport EV").all()
+        assert all(load in n.loads.index for load in expected_loads)
+        assert n.loads.loc[expected_loads, "carrier"].eq("land transport EV").all()
         
         print("✓ Test: EV loads created")
     
@@ -143,13 +145,15 @@ class TestAddEVsBasic:
         avail_profile, dsm_profile, p_set, electric_share, number_cars, temperature = \
             create_test_data(nodes)
         
+        add_EVs(n, avail_profile, dsm_profile, p_set, electric_share, number_cars, temperature, spatial, options)
+
         # Expected charger names
         expected_chargers = [node + " BEV charger" for node in nodes]
         
         # Verify chargers exist and have correct properties
-        # assert all(charger in n.links.index for charger in expected_chargers)
-        # assert n.links.loc[expected_chargers, "carrier"].eq("BEV charger").all()
-        # assert n.links.loc[expected_chargers, "efficiency"].eq(options["bev_charge_efficiency"]).all()
+        assert all(charger in n.links.index for charger in expected_chargers)
+        assert n.links.loc[expected_chargers, "carrier"].eq("BEV charger").all()
+        assert n.links.loc[expected_chargers, "efficiency"].eq(options["bev_charge_efficiency"]).all()
         
         print("✓ Test: BEV chargers created with correct efficiency")
     
@@ -162,6 +166,8 @@ class TestAddEVsBasic:
         avail_profile, dsm_profile, p_set, electric_share, number_cars, temperature = \
             create_test_data(nodes)
         
+        ### adjustment required for temperature data structure
+
         # Test temperature correction at different temperatures
         low_temp = pd.DataFrame(5.0, index=temperature.index, columns=temperature.columns)
         high_temp = pd.DataFrame(30.0, index=temperature.index, columns=temperature.columns)
@@ -182,11 +188,13 @@ class TestAddEVsWithDSM:
         avail_profile, dsm_profile, p_set, electric_share, number_cars, temperature = \
             create_test_data(nodes)
         
+        add_EVs(n, avail_profile, dsm_profile, p_set, electric_share, number_cars, temperature, spatial, options)
+
         # Expected storage names
         expected_stores = [node + " EV battery" for node in nodes]
         
-        # assert all(store in n.stores.index for store in expected_stores)
-        # assert n.stores.loc[expected_stores, "carrier"].eq("EV battery").all()
+        assert all(store in n.stores.index for store in expected_stores)
+        assert n.stores.loc[expected_stores, "carrier"].eq("EV battery").all()
         
         print("✓ Test: DSM storage units created")
     
@@ -200,6 +208,8 @@ class TestAddEVsWithDSM:
         avail_profile, dsm_profile, p_set, electric_share, number_cars, temperature = \
             create_test_data(nodes)
         
+        ### adjustment required
+
         # Expected e_nom calculation
         expected_e_nom = (
             number_cars * 
@@ -238,11 +248,13 @@ class TestAddEVsWithV2G:
         avail_profile, dsm_profile, p_set, electric_share, number_cars, temperature = \
             create_test_data(nodes)
         
+        add_EVs(n, avail_profile, dsm_profile, p_set, electric_share, number_cars, temperature, spatial, options)
+
         # Expected V2G link names
         expected_v2g = [node + " V2G" for node in nodes]
         
-        # assert all(v2g in n.links.index for v2g in expected_v2g)
-        # assert n.links.loc[expected_v2g, "carrier"].eq("V2G").all()
+        assert all(v2g in n.links.index for v2g in expected_v2g)
+        assert n.links.loc[expected_v2g, "carrier"].eq("V2G").all()
         
         print("✓ Test: V2G links created")
     
@@ -257,6 +269,8 @@ class TestAddEVsWithV2G:
         avail_profile, dsm_profile, p_set, electric_share, number_cars, temperature = \
             create_test_data(nodes)
         
+        ### adjustment required
+
         # V2G should not be added
         expected_v2g = [node + " V2G" for node in nodes]
         # assert not any(v2g in n.links.index for v2g in expected_v2g)
@@ -274,6 +288,8 @@ class TestAddEVsWithV2G:
         avail_profile, dsm_profile, p_set, electric_share, number_cars, temperature = \
             create_test_data(nodes)
         
+        ### adjustment required
+
         # Expected V2G capacity
         expected_p_nom = (
             number_cars * 

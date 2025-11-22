@@ -1,0 +1,19 @@
+digraph snakemake_dag {
+    graph[bgcolor=white, margin=0];
+    node[shape=box, style=rounded, fontname=sans,                 fontsize=10, penwidth=2];
+    edge[penwidth=2, color=grey];
+8[label = "retrieve_databundle", color = "0.47 0.6 0.85", style="rounded"];
+44[label = "build_population_weighted_energy_totals", color = "0.22 0.6 0.85", style="rounded"];
+45[label = "build_energy_totals", color = "0.11 0.6 0.85", style="rounded"];
+48[label = "build_clustered_population_layouts", color = "0.06 0.6 0.85", style="rounded"];
+51[label = "build_transport_demand", color = "0.28 0.6 0.85", style="rounded"];
+52[label = "build_temperature_profiles", color = "0.27 0.6 0.85", style="rounded"];
+	45 -> 44
+	48 -> 44
+	8 -> 45
+	8 -> 51
+	45 -> 51
+	52 -> 51
+	48 -> 51
+	44 -> 51
+}
