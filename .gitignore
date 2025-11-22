@@ -56,7 +56,7 @@ d1gam3xoknrgr2.cloudfront.net/
 
 *.org
 
-*.nc
+# *.nc
 
 *~
 
@@ -68,7 +68,7 @@ d1gam3xoknrgr2.cloudfront.net/
 
 *.geojson
 
-*.ipynb
+# *.ipynb
 
 merger-todos.md
 
