@@ -2636,7 +2636,7 @@ def add_land_transport(
 
     # read in transport demand in units driven km [100 km]
     transport = pd.read_csv(transport_demand_file, index_col=0, parse_dates=True)
-    number_cars = pd.read_csv(transport_data_file, index_col=0)["number cars"]
+    number_cars = pd.read_csv(transport_data_file, index_col=0)["Number Passenger cars"]
     avail_profile = pd.read_csv(avail_profile_file, index_col=0, parse_dates=True)
     dsm_profile = pd.read_csv(dsm_profile_file, index_col=0, parse_dates=True)
 
