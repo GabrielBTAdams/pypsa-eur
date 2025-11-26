@@ -44,7 +44,7 @@ def build_nodal_transport_data(fn, pop_layout, year):
     return nodal_transport_data
 
 
-def build_transport_demand(traffic_fn, airtemp_fn, nodes, nodal_transport_data): #, snapshots, options, pop_weighted_energy_totals, nyears):
+def build_transport_demand(traffic_fn, airtemp_fn, snapshots, nodes, nodal_transport_data, options, pop_weighted_energy_totals, nyears):
     """
     Returns transport demand per bus in unit km driven [100 km].
     """
