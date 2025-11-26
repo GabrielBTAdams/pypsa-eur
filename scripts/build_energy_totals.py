@@ -567,7 +567,7 @@ def idees_per_country(ct: str, base_dir: str) -> pd.DataFrame:
 
     # vehicle-km driven (mio km)
     assert df.index[31] == "Passenger cars"
-    ct_totals["mio km-driven passenger cars"] = df.iloc[31]
+    ct_totals["mio km-driven Passenger cars"] = df.iloc[31]
 
     assert df.index[30] == "Powered two-wheelers"
     ct_totals["mio km-driven Powered two-wheelers"] = df.iloc[30]
@@ -731,7 +731,7 @@ def build_energy_totals(
         "Number Heavy duty vehicles",
         "passenger car efficiency",
         "heavy duty efficiency",
-        "mio km-driven passenger cars",
+        "mio km-driven Passenger cars",
         "mio km-driven Powered two-wheelers",
         "mio km-driven Light duty vehicles",
         "mio km-driven Motor coaches, buses and trolley buses",
@@ -1254,7 +1254,7 @@ def build_transport_data(
     ]
 
     # first collect number of cars
-    transport_data = pd.DataFrame(idees["Number Passenger cars"])
+    transport_data = pd.DataFrame(idees[car_cols])
 
     countries_without_ch = set(countries) - {"CH"}
     new_index = pd.MultiIndex.from_product(
@@ -1282,24 +1282,25 @@ def build_transport_data(
         transport_data.index.get_level_values(1).isin(years)
     ]
 
-    missing = transport_data.index[transport_data["Number Passenger cars"].isna()]
-    if not missing.empty:
-        logger.info(
-            f"Missing data on cars from:\n{list(missing)}\nFilling gaps with averaged data."
-        )
-        cars_pp = transport_data["Number Passenger cars"] / population
+    for col in car_cols:
+        missing = transport_data.index[transport_data[col].isna()]
+        if not missing.empty:
+            logger.info(
+                f"Missing data on cars from:\n{list(missing)}\nFilling gaps with averaged data."
+            )
+            cars_pp = transport_data[col] / population
 
-        fill_values = {
-            year: cars_pp.mean() * population for year in transport_data.index.unique(1)
-        }
-        fill_values = pd.DataFrame(fill_values).stack()
-        fill_values = pd.DataFrame(fill_values, columns=["Number Passenger cars"])
-        fill_values.index.names = ["country", "year"]
-        fill_values = fill_values.reindex(transport_data.index)
+            fill_values = {
+                year: cars_pp.mean() * population for year in transport_data.index.unique(1)
+            }
+            fill_values = pd.DataFrame(fill_values).stack()
+            fill_values = pd.DataFrame(fill_values, columns=[col])
+            fill_values.index.names = ["country", "year"]
+            fill_values = fill_values.reindex(transport_data.index)
 
-        transport_data = transport_data.combine_first(fill_values)
+            transport_data = transport_data.combine_first(fill_values)
 
-    # collect average fuel efficiency in MWh/100km, taking passengar car efficiency in TWh/100km
+    # collect average fuel efficiency in MWh/100km, taking passenger car efficiency in TWh/100km
     transport_data["average fuel efficiency"] = idees["passenger car efficiency"] * 1e6
 
     missing = transport_data.index[transport_data["average fuel efficiency"].isna()]

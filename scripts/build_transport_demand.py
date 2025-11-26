@@ -32,8 +32,10 @@ def build_nodal_transport_data(fn, pop_layout, year):
     # break number of cars down to nodal level based on population density
     nodal_transport_data = transport_data.loc[pop_layout.ct].fillna(0.0)
     nodal_transport_data.index = pop_layout.index
-    nodal_transport_data["Number Passenger cars"] = (
-        pop_layout["fraction"] * nodal_transport_data["Number Passenger cars"]
+
+    car_cols = transport_data.columns[~transport_data.columns.str.contains("efficiency")]
+    nodal_transport_data[car_cols] = (
+        nodal_transport_data[car_cols].mul(pop_layout["fraction"], axis=0)
     )
     # fill missing fuel efficiency with average data
     nodal_transport_data.loc[
