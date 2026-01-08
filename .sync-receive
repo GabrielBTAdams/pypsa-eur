@@ -2,11 +2,18 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-# rules
-# scripts
+rules
+scripts
 # config
-# config/test
-# envs
-# matplotlibrc
-# Snakefile
+config/test
+envs
+matplotlibrc
+Snakefile
 cutouts
+docker
+doc
+LICENSES
+.snakemake
+.github
+.git
+linopy-problem-32nyfhwm.lp
