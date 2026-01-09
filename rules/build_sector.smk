@@ -1098,6 +1098,10 @@ rule build_transport_demand:
         transport_data=resources("transport_data.csv"),
         traffic_data_KFZ="data/bundle/emobility/KFZ__count",
         traffic_data_Pkw="data/bundle/emobility/Pkw__count",
+        traffic_data_Mot="data/bundle/emobility/Pkw__count", # TEMP: replace with Mot data once generated
+        traffic_data_Lfw="data/bundle/emobility/Lfw__count",
+        traffic_data_Lkw="data/bundle/emobility/Lkw__count",
+        traffic_data_Bus="data/bundle/emobility/Bus__count",        
         temp_air_total=resources("temp_air_total_base_s_{clusters}.nc"),
     output:
         transport_demand=resources("transport_demand_s_{clusters}.csv"),
