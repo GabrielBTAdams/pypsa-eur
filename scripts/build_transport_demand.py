@@ -152,33 +152,52 @@ def transport_degree_factor(
     return dd
 
 
-def bev_availability_profile(fn, snapshots, nodes, options):
+def bev_availability_profile(fn_Pkw,
+                             fn_Mot,
+                             fn_Lfw,
+                             fn_Lkw,
+                             fn_Bus, snapshots, nodes, options):
     """
     Derive plugged-in availability for passenger electric vehicles.
     """
     # car count in typical week
-    traffic = pd.read_csv(fn, skiprows=2, usecols=["count"]).squeeze("columns")
-    # maximum share plugged-in availability for passenger electric vehicles
-    avail_max = options["bev_avail_max"]
-    # average share plugged-in availability for passenger electric vehicles
-    avail_mean = options["bev_avail_mean"]
+    traffic_Pkw = pd.read_csv(fn_Pkw, skiprows=2, usecols=["count"]).squeeze("columns")
+    traffic_Mot = pd.read_csv(fn_Mot, skiprows=2, usecols=["count"]).squeeze("columns")
+    traffic_Lfw = pd.read_csv(fn_Lfw, skiprows=2, usecols=["count"]).squeeze("columns")
+    traffic_Lkw = pd.read_csv(fn_Lkw, skiprows=2, usecols=["count"]).squeeze("columns")
+    traffic_Bus = pd.read_csv(fn_Bus, skiprows=2, usecols=["count"]).squeeze("columns")
 
-    # linear scaling, highest when traffic is lowest, decreases if traffic increases
-    avail = avail_max - (avail_max - avail_mean) * (traffic - traffic.min()) / (
-        traffic.mean() - traffic.min()
-    )
+    def get_avail(traffic,name):
+        # maximum share plugged-in availability for passenger electric vehicles
+        avail_max = options["bev_avail_max"]
+        # average share plugged-in availability for passenger electric vehicles
+        avail_mean = options["bev_avail_mean"]
 
-    if not avail[avail < 0].empty:
-        logger.warning(
-            "The BEV availability weekly profile has negative values which can "
-            "lead to infeasibility."
+        # linear scaling, highest when traffic is lowest, decreases if traffic increases
+        avail = avail_max - (avail_max - avail_mean) * (traffic - traffic.min()) / (
+            traffic.mean() - traffic.min()
         )
 
-    return generate_periodic_profiles(
-        dt_index=snapshots,
-        nodes=nodes,
-        weekly_profile=avail.values,
-    )
+        if not avail[avail < 0].empty:
+            logger.warning(
+                "The BEV availability weekly profile has negative values which can "
+                "lead to infeasibility."
+            )
+
+        avail_periodic = generate_periodic_profiles(
+            dt_index=snapshots,
+            nodes=nodes,
+            weekly_profile=avail.values,
+        )
+    
+        return pd.concat([avail_periodic], keys=[name], axis=1)
+    
+    return pd.concat([get_avail(traffic_Pkw,name="pkw"),
+                      get_avail(traffic_Mot,name="mot"),
+                      get_avail(traffic_Lfw,name="lfw"),
+                      get_avail(traffic_Lkw,name="lkw"),
+                      get_avail(traffic_Bus,name="bus")],
+                      axis=1)
 
 
 def bev_dsm_profile(snapshots, nodes, options):
@@ -228,7 +247,7 @@ if __name__ == "__main__":
 
     transport_demand = build_transport_demand(
         snakemake.input.traffic_data_Pkw, # ="data/bundle/emobility/Pkw__count",
-        snakemake.input.traffic_data_Mot, # ="data/bundle/emobility/Pkw__count",
+        snakemake.input.traffic_data_Mot, # ="data/bundle/emobility/Pkw__count", TEMP: replace with Mot data once generated
         snakemake.input.traffic_data_Lfw, # ="data/bundle/emobility/Lfw__count",
         snakemake.input.traffic_data_Lkw, # ="data/bundle/emobility/Lkw__count",
         snakemake.input.traffic_data_Bus, # ="data/bundle/emobility/Bus__count",
@@ -239,7 +258,12 @@ if __name__ == "__main__":
     )
 
     avail_profile = bev_availability_profile(
-        snakemake.input.traffic_data_Pkw, snapshots, nodes, options
+        snakemake.input.traffic_data_Pkw, # ="data/bundle/emobility/Pkw__count",
+        snakemake.input.traffic_data_Mot, # ="data/bundle/emobility/Pkw__count", TEMP: replace with Mot data once generated
+        snakemake.input.traffic_data_Lfw, # ="data/bundle/emobility/Lfw__count",
+        snakemake.input.traffic_data_Lkw, # ="data/bundle/emobility/Lkw__count",
+        snakemake.input.traffic_data_Bus, # ="data/bundle/emobility/Bus__count",
+        snapshots, nodes, options
     )
 
     dsm_profile = bev_dsm_profile(snapshots, nodes, options)

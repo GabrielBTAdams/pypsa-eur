@@ -2226,6 +2226,7 @@ def add_EVs(
     electric_share: pd.Series,
     number_cars: pd.Series,
     temperature: pd.DataFrame,
+    car_efficiency: float,
     spatial: SimpleNamespace,
     options: dict,
     transport_type: str,
@@ -2300,7 +2301,7 @@ def add_EVs(
     )
 
     # Calculate temperature-corrected efficiency
-    car_efficiency = options["transport_electric_efficiency"]
+    # car_efficiency = options["transport_electric_efficiency"]
     efficiency = get_temp_efficency(
         car_efficiency,
         temperature,
@@ -2329,7 +2330,7 @@ def add_EVs(
     )
 
     # Add BEV chargers
-    p_nom = number_cars * options["bev_charge_rate"] * electric_share
+    p_nom = number_cars * options["bev_charge_rate"][transport_type] * electric_share
     n.add(
         "Link",
         spatial.nodes,
@@ -2578,6 +2579,39 @@ def add_ice_cars(
         p_nom_extendable=True,
     )
 
+car_keys = {"fuel_cell": ['FCV Bus city',
+                          'FCV Coach',
+                          'FCV Truck Semi-Trailer max 50 tons',
+                          'FCV Truck Solo max 26 tons',
+                          'FCV Truck Trailer max 56 tons'],
+            "ice": ['Diesel Bus city',
+                    'Diesel Coach',
+                    'Diesel Truck Semi-Trailer max 50 tons',
+                    'Diesel Truck Solo max 26 tons',
+                    'Diesel Truck Trailer max 56 tons'],
+            "electric": ['BEV Bus city',
+                         'BEV Coach',
+                         'BEV Truck Semi-Trailer max 50 tons',
+                         'BEV Truck Solo max 26 tons',
+                         'BEV Truck Trailer max 56 tons']}
+
+
+def get_car_efficiencies():
+    car_efficiencies =  pd.DataFrame()
+    # engine_types = ["fuel_cell", "electric", "ice"]
+    engine_types = ["electric"]
+    for engine in engine_types:
+        car_efficiencies.loc[engine, "pkw"] = options[f"transport_{engine}_efficiency"]["pkw"]
+        car_efficiencies.loc[engine, "mot"] = options[f"transport_{engine}_efficiency"]["mot"]
+        car_efficiencies.loc[engine, "lfw"] = options[f"transport_{engine}_efficiency"]["lfw"]
+        # from technology data
+        car_efficiency = costs.loc[car_keys[engine], "efficiency"].mean()
+        # convert kWh/km in MWh per 100 km
+        car_efficiency = (1/(1e2*car_efficiency))*1e3
+        car_efficiencies.loc[engine, "bus"] = car_efficiency
+        car_efficiencies.loc[engine, "lkw"] = car_efficiency
+        
+    return car_efficiencies
 
 def add_land_transport(
     n,
@@ -2648,7 +2682,9 @@ def add_land_transport(
                 "Number Heavy duty vehicles",
                 ]
     number_cars = pd.read_csv(transport_data_file, index_col=0)[car_cols]
-    avail_profile = pd.read_csv(avail_profile_file, index_col=0, parse_dates=True)
+    avail_profile = pd.read_csv(avail_profile_file, index_col=0, parse_dates=True,
+                                header = [0,1]
+                                ).reindex(columns=nodes, level=1)
     dsm_profile = pd.read_csv(dsm_profile_file, index_col=0, parse_dates=True)
 
     # exogenous share of passenger car type
@@ -2656,10 +2692,12 @@ def add_land_transport(
     transport_types = transport.columns.levels[0]
 
     shares = pd.DataFrame()
+    car_efficiencies =  get_car_efficiencies()
     for engine in engine_types:
         for transport_type in transport_types:
-            # TEMP: introduce transport types to config
-            shares.loc[engine, transport_type] = get(options[f"land_transport_{engine}_share"], investment_year)
+            # introduce transport types to config
+            shares.loc[engine, transport_type] = get(options[f"land_transport_{engine}_share"][transport_type]
+                                                     , investment_year)
             if logger:
                 logger.info(f"{engine} share: {shares.loc[engine, transport_type] * 100}%")
 
@@ -2682,15 +2720,16 @@ def add_land_transport(
         
         p_set = transport[transport_type][nodes]
 
-        if shares.loc["electric", "pkw"] > 0: # TEMP: pkw
+        if shares.loc["electric", transport_type] > 0: # TEMP: pkw
             add_EVs(
                 n,
-                avail_profile,
+                avail_profile[transport_type][nodes],
                 dsm_profile,
                 p_set,
-                shares.loc["electric", "pkw"], # TEMP: pkw
+                shares.loc["electric", transport_type], # TEMP: pkw
                 number_cars[car_cols[transport_type]],
                 temperature,
+                car_efficiencies.loc["electric", transport_type],
                 spatial,
                 options,
                 transport_type=transport_type,
@@ -2702,9 +2741,10 @@ def add_land_transport(
                 p_set=p_set,
                 fuel_cell_share=shares.loc["fuel_cell", "pkw"], # TEMP: pkw
                 temperature=temperature,
+                # car_efficiencies.loc["electric", transport_type], # TEMP: not implemented yet
                 options=options,
                 spatial=spatial,
-                # transport_type=transport_type,
+                # transport_type=transport_type, # TEMP: not implemented yet
             )
 
         if shares.loc["ice", "pkw"] > 0: # TEMP: pkw
@@ -2714,10 +2754,11 @@ def add_land_transport(
                 p_set,
                 shares.loc["ice", "pkw"], # TEMP: pkw
                 temperature,
+                # car_efficiencies.loc["electric", transport_type], # TEMP: not implemented yet
                 cf_industry,
                 spatial,
                 options,
-                # transport_type=transport_type,
+                # transport_type=transport_type, # TEMP: not implemented yet
             )
 
 
