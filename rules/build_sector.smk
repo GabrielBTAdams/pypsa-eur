@@ -1096,6 +1096,7 @@ rule build_transport_demand:
             "pop_weighted_energy_totals_s_{clusters}.csv"
         ),
         transport_data=resources("transport_data.csv"),
+        vehicle_segment_distribution="data/bundle/emobility/eurostat_tran_r_vehst.csv", # manually added
         traffic_data_KFZ="data/bundle/emobility/KFZ__count",
         traffic_data_Pkw="data/bundle/emobility/Pkw__count",
         traffic_data_Mot="data/bundle/emobility/Pkw__count", # TEMP: replace with Mot data once generated
