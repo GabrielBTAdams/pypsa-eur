@@ -379,11 +379,11 @@ if __name__ == "__main__":
     )
 
     transport_demand = build_transport_demand(
-        snakemake.input.traffic_data_Pkw, # ="data/bundle/emobility/Pkw__count",
-        snakemake.input.traffic_data_Mot, # ="data/bundle/emobility/Pkw__count", TEMP: replace with Mot data once generated
-        snakemake.input.traffic_data_Lfw, # ="data/bundle/emobility/Lfw__count",
-        snakemake.input.traffic_data_Lkw, # ="data/bundle/emobility/Lkw__count",
-        snakemake.input.traffic_data_Bus, # ="data/bundle/emobility/Bus__count",
+        snakemake.input.traffic_data_Pkw,
+        snakemake.input.traffic_data_Mot,
+        snakemake.input.traffic_data_Lfw,
+        snakemake.input.traffic_data_Lkw,
+        snakemake.input.traffic_data_Bus,
 
         snakemake.input.temp_air_total,
         nodes,
@@ -391,11 +391,11 @@ if __name__ == "__main__":
     )
 
     avail_profile = bev_availability_profile(
-        snakemake.input.traffic_data_Pkw, # ="data/bundle/emobility/Pkw__count",
-        snakemake.input.traffic_data_Mot, # ="data/bundle/emobility/Pkw__count", TEMP: replace with Mot data once generated
-        snakemake.input.traffic_data_Lfw, # ="data/bundle/emobility/Lfw__count",
-        snakemake.input.traffic_data_Lkw, # ="data/bundle/emobility/Lkw__count",
-        snakemake.input.traffic_data_Bus, # ="data/bundle/emobility/Bus__count",
+        snakemake.input.traffic_data_Pkw,
+        snakemake.input.traffic_data_Mot,
+        snakemake.input.traffic_data_Lfw,
+        snakemake.input.traffic_data_Lkw,
+        snakemake.input.traffic_data_Bus,
         snapshots, nodes, options
     )
 
