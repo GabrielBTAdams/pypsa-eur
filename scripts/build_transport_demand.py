@@ -83,25 +83,6 @@ def build_transport_demand(traffic_fn_Pkw,
     transport_shape_Lkw = get_shape(traffic_fn_Lkw)
     transport_shape_Bus = get_shape(traffic_fn_Bus)
 
-    # get heating demand for correction to demand time series
-    temperature = xr.open_dataarray(airtemp_fn).to_pandas()
-
-    # correction factors for vehicle heating
-    dd_ICE = transport_degree_factor(
-        temperature,
-        options["transport_heating_deadband_lower"],
-        options["transport_heating_deadband_upper"],
-        options["ICE_lower_degree_factor"],
-        options["ICE_upper_degree_factor"],
-    )
-
-    # divide out the heating/cooling demand from ICE totals
-    ice_correction_Pkw = (transport_shape_Pkw * (1 + dd_ICE)).sum() / transport_shape_Pkw.sum()
-    ice_correction_Mot = (transport_shape_Mot * (1 + dd_ICE)).sum() / transport_shape_Mot.sum()
-    ice_correction_Lfw = (transport_shape_Lfw * (1 + dd_ICE)).sum() / transport_shape_Lfw.sum()
-    ice_correction_Lkw = (transport_shape_Lkw * (1 + dd_ICE)).sum() / transport_shape_Lkw.sum()
-    ice_correction_Bus = (transport_shape_Bus * (1 + dd_ICE)).sum() / transport_shape_Bus.sum()
-
     # non-electrified rail share
     non_elec_rail = (1 - (pop_weighted_energy_totals["electricity rail"]
                           / pop_weighted_energy_totals["total rail"]))
@@ -119,20 +100,19 @@ def build_transport_demand(traffic_fn_Pkw,
                     nodal_transport_data["load factor Rail passenger"] / nodal_transport_data["load factor Motor coaches, buses and trolley buses"]
                 )
 
-    def get_demand(profile, total, nyears, ice_correction, name):
-        """Returns from total demand [mio km], given profile and ICE correction
+    def get_demand(profile, total, nyears, name):
+        """Returns from total demand [mio km] and given profile
         demand time-series in unit [100 km]."""
 
-        demand = ((profile.multiply(total) * 1e4 * nyears)
-                  .divide(ice_correction))
+        demand = (profile.multiply(total) * 1e4 * nyears)
 
         return pd.concat([demand], keys=[name], axis=1)
     
-    demand_pkw = get_demand(transport_shape_Pkw, pkw, nyears, ice_correction_Pkw, name="pkw")
-    demand_mot = get_demand(transport_shape_Mot, mot, nyears, ice_correction_Mot, name="mot")
-    demand_lfw = get_demand(transport_shape_Lfw, lfw, nyears, ice_correction_Lfw, name="lfw")
-    demand_lkw = get_demand(transport_shape_Lkw, lkw, nyears, ice_correction_Lkw, name="lkw")
-    demand_bus = get_demand(transport_shape_Bus, bus, nyears, ice_correction_Bus, name="bus")
+    demand_pkw = get_demand(transport_shape_Pkw, pkw, nyears, name="pkw")
+    demand_mot = get_demand(transport_shape_Mot, mot, nyears, name="mot")
+    demand_lfw = get_demand(transport_shape_Lfw, lfw, nyears, name="lfw")
+    demand_lkw = get_demand(transport_shape_Lkw, lkw, nyears, name="lkw")
+    demand_bus = get_demand(transport_shape_Bus, bus, nyears, name="bus")
 
     return pd.concat([demand_pkw, demand_mot, demand_lfw, demand_lkw, demand_bus], axis=1)
 
