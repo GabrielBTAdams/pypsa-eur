@@ -399,7 +399,6 @@ plotting:
     land transport EV: '#baf238'
     land transport demand: '#38baf2'
     EV battery: '#baf238'
-    # TEMP: adjust colours for different transport modes, V2G once implemented for other segments
     EV battery bus: '#baf238'
     EV battery lfw: '#a4d929'
     EV battery lkw: '#91c21f'

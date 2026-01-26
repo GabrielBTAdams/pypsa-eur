@@ -32,15 +32,24 @@ def build_nodal_transport_data(fn, pop_layout, year):
     nodal_transport_data = transport_data.loc[pop_layout.ct].fillna(0.0)
     nodal_transport_data.index = pop_layout.index
     # add nodal transport data for specified segments
-    car_cols = transport_data.columns[~transport_data.columns.str.contains("efficiency")]
+    # avoid "efficiency" and "load factor" columns
+    car_cols = transport_data.columns[~transport_data.columns.str.contains("efficiency|load factor")]
     nodal_transport_data[car_cols] = (
         nodal_transport_data[car_cols].mul(pop_layout["fraction"], axis=0)
     )
-    # fill missing fuel efficiency with average data
-    nodal_transport_data.loc[
-        nodal_transport_data["average fuel efficiency"] == 0.0,
+    # fill missing stats with average data
+    stats = [
         "average fuel efficiency",
-    ] = transport_data["average fuel efficiency"].mean()
+        "load factor Rail passenger",
+        "load factor Rail freight",
+        "load factor Heavy duty vehicles",
+        "load factor Motor coaches, buses and trolley buses",
+    ]
+    for stat in stats:
+        nodal_transport_data.loc[
+            nodal_transport_data[stat] == 0.0,
+            stat,
+        ] = transport_data[stat].mean()
 
     return nodal_transport_data
 
@@ -102,8 +111,13 @@ def build_transport_demand(traffic_fn_Pkw,
     mot = nodal_transport_data["mio km-driven Powered two-wheelers"]
     lfw = nodal_transport_data["mio km-driven Light duty vehicles"]
     lkw = nodal_transport_data["mio km-driven Heavy duty vehicles"] \
-                + non_elec_rail * nodal_transport_data["mio km-driven Rail"]
-    bus = nodal_transport_data["mio km-driven Motor coaches, buses and trolley buses"]
+                + non_elec_rail * nodal_transport_data["mio km-driven Rail freight"] * (
+                    nodal_transport_data["load factor Rail freight"] / nodal_transport_data["load factor Heavy duty vehicles"]
+                )
+    bus = nodal_transport_data["mio km-driven Motor coaches, buses and trolley buses"] \
+                + non_elec_rail * nodal_transport_data["mio km-driven Rail passenger"] * (
+                    nodal_transport_data["load factor Rail passenger"] / nodal_transport_data["load factor Motor coaches, buses and trolley buses"]
+                )
 
     def get_demand(profile, total, nyears, ice_correction, name):
         """Returns from total demand [mio km], given profile and ICE correction
