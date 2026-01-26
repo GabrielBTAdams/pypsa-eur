@@ -2345,21 +2345,20 @@ def add_EVs(
     )
 
     # Add demand-side management components if enabled
-    # TEMP: define dsm participation segments
-    if options["bev_dsm"] and transport_type=="pkw":
+    if options["bev_dsm"][transport_type]:
         e_nom = (
             number_cars
-            * options["bev_energy"]
-            * options["bev_dsm_availability"]
+            * options["bev_energy"][transport_type]
+            * options["bev_dsm_availability"][transport_type]
             * electric_share
         )
 
         n.add(
             "Store",
             spatial.nodes,
-            suffix=" EV battery", # TEMP: add DSM capability for other segments
+            suffix=f" EV battery {transport_type}",
             bus=spatial.nodes + f" EV battery {transport_type}",
-            carrier="EV battery",
+            carrier=f"EV battery {transport_type}",
             e_cyclic=True,
             e_nom=e_nom,
             e_max_pu=1,
@@ -2367,15 +2366,15 @@ def add_EVs(
         )
 
         # Add vehicle-to-grid if enabled
-        if options["v2g"]:
+        if options["v2g"][transport_type]:
             n.add(
                 "Link",
                 spatial.nodes,
-                suffix=" V2G", # TEMP: add V2G capability for other segments
+                suffix=f" V2G {transport_type}",
                 bus1=spatial.nodes,
                 bus0=spatial.nodes + f" EV battery {transport_type}",
-                p_nom=p_nom * options["bev_dsm_availability"],
-                carrier="V2G",
+                p_nom=p_nom * options["bev_dsm_availability"][transport_type],
+                carrier=f"V2G {transport_type}",
                 p_max_pu=avail_profile.loc[n.snapshots, spatial.nodes],
                 lifetime=1,
                 efficiency=options["bev_charge_efficiency"],
@@ -2579,21 +2578,26 @@ def add_ice_cars(
         p_nom_extendable=True,
     )
 
-car_keys = {"fuel_cell": ['FCV Bus city',
-                          'FCV Coach',
-                          'FCV Truck Semi-Trailer max 50 tons',
-                          'FCV Truck Solo max 26 tons',
-                          'FCV Truck Trailer max 56 tons'],
-            "ice": ['Diesel Bus city',
-                    'Diesel Coach',
-                    'Diesel Truck Semi-Trailer max 50 tons',
-                    'Diesel Truck Solo max 26 tons',
-                    'Diesel Truck Trailer max 56 tons'],
-            "electric": ['BEV Bus city',
-                         'BEV Coach',
-                         'BEV Truck Semi-Trailer max 50 tons',
-                         'BEV Truck Solo max 26 tons',
-                         'BEV Truck Trailer max 56 tons']}
+car_keys = {
+    "fuel_cell": {
+        "bus": ['FCV Bus city', 'FCV Coach'],
+        "lkw": ['FCV Truck Semi-Trailer max 50 tons',
+                'FCV Truck Solo max 26 tons',
+                'FCV Truck Trailer max 56 tons'],
+    },
+    "ice": {
+        "bus": ['Diesel Bus city', 'Diesel Coach'],
+        "lkw": ['Diesel Truck Semi-Trailer max 50 tons',
+                'Diesel Truck Solo max 26 tons',
+                'Diesel Truck Trailer max 56 tons'],
+    },
+    "electric": {
+        "bus": ['BEV Bus city', 'BEV Coach'],
+        "lkw": ['BEV Truck Semi-Trailer max 50 tons',
+                'BEV Truck Solo max 26 tons',
+                'BEV Truck Trailer max 56 tons'],
+    },
+}
 
 
 def get_car_efficiencies():
@@ -2605,11 +2609,13 @@ def get_car_efficiencies():
         car_efficiencies.loc[engine, "mot"] = options[f"transport_{engine}_efficiency"]["mot"]
         car_efficiencies.loc[engine, "lfw"] = options[f"transport_{engine}_efficiency"]["lfw"]
         # from technology data
-        car_efficiency = costs.loc[car_keys[engine], "efficiency"].mean()
+        bus_efficiency = costs.loc[car_keys[engine]["bus"], "efficiency"].mean()
+        lkw_efficiency = costs.loc[car_keys[engine]["lkw"], "efficiency"].mean()
         # convert kWh/km in MWh per 100 km
-        car_efficiency = (1/(1e2*car_efficiency))*1e3
-        car_efficiencies.loc[engine, "bus"] = car_efficiency
-        car_efficiencies.loc[engine, "lkw"] = car_efficiency
+        bus_efficiency = (1 / (1e2 * bus_efficiency)) * 1e3
+        lkw_efficiency = (1 / (1e2 * lkw_efficiency)) * 1e3
+        car_efficiencies.loc[engine, "bus"] = bus_efficiency
+        car_efficiencies.loc[engine, "lkw"] = lkw_efficiency
         
     return car_efficiencies
 
@@ -2685,7 +2691,9 @@ def add_land_transport(
     avail_profile = pd.read_csv(avail_profile_file, index_col=0, parse_dates=True,
                                 header = [0,1]
                                 ).reindex(columns=nodes, level=1)
-    dsm_profile = pd.read_csv(dsm_profile_file, index_col=0, parse_dates=True)
+    dsm_profile = pd.read_csv(dsm_profile_file, index_col=0, parse_dates=True,
+                                header = [0,1]
+                                ).reindex(columns=nodes, level=1)
 
     # exogenous share of passenger car type
     engine_types = ["fuel_cell", "electric", "ice"]
@@ -2720,13 +2728,13 @@ def add_land_transport(
         
         p_set = transport[transport_type][nodes]
 
-        if shares.loc["electric", transport_type] > 0: # TEMP: pkw
+        if shares.loc["electric", transport_type] > 0:
             add_EVs(
                 n,
                 avail_profile[transport_type][nodes],
-                dsm_profile,
+                dsm_profile[transport_type][nodes],
                 p_set,
-                shares.loc["electric", transport_type], # TEMP: pkw
+                shares.loc["electric", transport_type],
                 number_cars[car_cols[transport_type]],
                 temperature,
                 car_efficiencies.loc["electric", transport_type],

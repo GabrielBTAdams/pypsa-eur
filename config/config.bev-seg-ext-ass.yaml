@@ -84,7 +84,7 @@ countries: #['DE']
 snapshots:
   start: "2013-01-01"
   # end: "2013-03-08"
-  end: "2013-01-31"
+  end: "2013-01-15"
   inclusive: 'left'
 
 # docs in https://pypsa-eur.readthedocs.io/en/latest/configuration.html#enable
@@ -564,17 +564,42 @@ sector:
     - ground
   cluster_heat_buses: true
   heat_demand_cutout: default
-  bev_dsm_restriction_value: 0.8
-  bev_dsm_restriction_time: 7
+  bev_dsm_restriction_value:
+    pkw: 0.8
+    mot: 0.8
+    bus: 0.8
+    lfw: 0.8
+    lkw: 0.8
+  bev_dsm_restriction_time:
+    pkw: 7
+    mot: 7
+    bus: 7
+    lfw: 7
+    lkw: 7
   transport_heating_deadband_upper: 20.
   transport_heating_deadband_lower: 15.
   ICE_lower_degree_factor: 0.375
   ICE_upper_degree_factor: 1.6
   EV_lower_degree_factor: 0.98
   EV_upper_degree_factor: 0.63
-  bev_dsm: true
-  bev_dsm_availability: 0.5
-  bev_energy: 0.05
+  bev_dsm:
+    pkw: true
+    mot: false
+    bus: false
+    lfw: false
+    lkw: false
+  bev_dsm_availability:
+    pkw: 0.5
+    mot: 0.5
+    bus: 0.5
+    lfw: 0.5
+    lkw: 0.5
+  bev_energy:
+    pkw: 0.05
+    mot: 0.00796
+    bus: 1
+    lfw: 0.078
+    lkw: 1.2
   bev_charge_efficiency: 0.9
   bev_charge_rate:
     pkw: 0.011
@@ -582,9 +607,24 @@ sector:
     bus: 0.345
     lfw: 0.011
     lkw: 0.345
-  bev_avail_max: 0.95
-  bev_avail_mean: 0.8
-  v2g: true
+  bev_avail_max:
+    pkw: 0.95
+    mot: 0.95
+    bus: 0.95
+    lfw: 0.95
+    lkw: 0.95
+  bev_avail_mean:
+    pkw: 0.8
+    mot: 0.8
+    bus: 0.8
+    lfw: 0.8
+    lkw: 0.8
+  v2g:
+    pkw: true
+    mot: false
+    bus: false
+    lfw: false
+    lkw: false
   land_transport_fuel_cell_share:
     pkw:
       2020: 0

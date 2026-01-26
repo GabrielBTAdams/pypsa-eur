@@ -168,10 +168,10 @@ def bev_availability_profile(fn_Pkw,
     traffic_Bus = pd.read_csv(fn_Bus, skiprows=2, usecols=["count"]).squeeze("columns")
 
     def get_avail(traffic,name):
-        # maximum share plugged-in availability for passenger electric vehicles
-        avail_max = options["bev_avail_max"]
-        # average share plugged-in availability for passenger electric vehicles
-        avail_mean = options["bev_avail_mean"]
+        # maximum share plugged-in availability for respective segment
+        avail_max = options["bev_avail_max"][name]
+        # average share plugged-in availability for respective segment
+        avail_mean = options["bev_avail_mean"][name]
 
         # linear scaling, highest when traffic is lowest, decreases if traffic increases
         avail = avail_max - (avail_max - avail_mean) * (traffic - traffic.min()) / (
@@ -201,19 +201,29 @@ def bev_availability_profile(fn_Pkw,
 
 
 def bev_dsm_profile(snapshots, nodes, options):
-    dsm_week = np.zeros((24 * 7,))
 
-    # assuming that at a certain time ("bev_dsm_restriction_time") EVs have to
-    # be charged to a minimum value (defined in bev_dsm_restriction_value)
-    dsm_week[(np.arange(0, 7, 1) * 24 + options["bev_dsm_restriction_time"])] = options[
-        "bev_dsm_restriction_value"
-    ]
+    def get_dsm(name):
+        dsm_week = np.zeros((24 * 7,))
 
-    return generate_periodic_profiles(
-        dt_index=snapshots,
-        nodes=nodes,
-        weekly_profile=dsm_week,
-    )
+        # assuming that at a certain time ("bev_dsm_restriction_time") EVs have to
+        # be charged to a minimum value (defined in bev_dsm_restriction_value)
+        dsm_week[(np.arange(0, 7, 1) * 24 + options["bev_dsm_restriction_time"][name])] = options[
+            "bev_dsm_restriction_value"][name]
+
+        dsm_periodic = generate_periodic_profiles(
+            dt_index=snapshots,
+            nodes=nodes,
+            weekly_profile=dsm_week,
+        )
+    
+        return pd.concat([dsm_periodic], keys=[name], axis=1)
+
+    return pd.concat([get_dsm(name="pkw"),
+                      get_dsm(name="mot"),
+                      get_dsm(name="lfw"),
+                      get_dsm(name="lkw"),
+                      get_dsm(name="bus")],
+                      axis=1)
 
 
 if __name__ == "__main__":
