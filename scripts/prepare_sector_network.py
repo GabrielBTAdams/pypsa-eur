@@ -2311,10 +2311,11 @@ def add_EVs(
         options["EV_upper_degree_factor"],
     )
 
-    # Apply rolling average smoothing to power profile
-    p_shifted = (p_set + cycling_shift(p_set, 1) + cycling_shift(p_set, 2)) / 3
-    cyclic_eff = p_set.div(p_shifted)
-    efficiency *= cyclic_eff
+    if options["bev_dem_smoothing"]:
+        # Apply rolling average smoothing to power profile
+        p_shifted = (p_set + cycling_shift(p_set, 1) + cycling_shift(p_set, 2)) / 3
+        cyclic_eff = p_set.div(p_shifted)
+        efficiency *= cyclic_eff
 
     # Calculate load profile
     profile = electric_share * p_set.div(efficiency)
