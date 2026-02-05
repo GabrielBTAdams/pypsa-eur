@@ -1575,11 +1575,14 @@ def insert_electricity_distribution_grid(
     loads = n.loads.index[n.loads.carrier.str.contains("electric")]
     n.loads.loc[loads, "bus"] += " low voltage"
 
-    # only connect pkw and mot to distribution grid; bus, lfw and lkw fast charge or depot charge in higehr grid level
-    bevs = n.links.index[n.links.carrier.str.contains("BEV charger (pkw|mot)")]
+    # only connect selected segments to low voltage
+    lv_charging_segments = options["low_voltage_charging"]
+    segment_pattern = "|".join(lv_charging_segments)
+
+    bevs = n.links.index[n.links.carrier.str.contains(f"BEV charger ({segment_pattern})")]
     n.links.loc[bevs, "bus0"] += " low voltage"
 
-    v2gs = n.links.index[n.links.carrier.str.contains("V2G (pkw|mot)")]
+    v2gs = n.links.index[n.links.carrier.str.contains(f"V2G ({segment_pattern})")]
     n.links.loc[v2gs, "bus1"] += " low voltage"
 
     hps = n.links.index[n.links.carrier.str.contains("heat pump")]
