@@ -509,6 +509,19 @@ def idees_per_country(ct: str, base_dir: str) -> pd.DataFrame:
     
     assert df.index[12] == "Vehicle-km (mio km)"
     ct_totals["mio km-driven Rail"] = df.iloc[12]
+    
+    assert df.index[13] == "Passenger transport"
+    ct_totals["mio km-driven Rail passenger"] = df.iloc[13]
+
+    assert df.index[19] == "Freight transport"
+    ct_totals["mio km-driven Rail freight"] = df.iloc[19]
+
+    # load factors (pkm/km or tkm/km)
+    assert df.index[48] == "Passenger transport (p/movement)"
+    ct_totals["load factor Rail passenger"] = df.iloc[48]
+
+    assert df.index[54] == "Freight transport (t/movement)"
+    ct_totals["load factor Rail freight"] = df.iloc[54]
 
     df = pd.read_excel(fn_transport, "TrAvia_ene", index_col=0)
 
@@ -581,6 +594,13 @@ def idees_per_country(ct: str, base_dir: str) -> pd.DataFrame:
     assert df.index[51] == "Heavy goods vehicles"
     ct_totals["mio km-driven Heavy duty vehicles"] = df.iloc[51]
 
+    # load factors (pkm/km or tkm/km)
+    assert df.index[148] == "Motor coaches, buses and trolley buses"
+    ct_totals["load factor Motor coaches, buses and trolley buses"] = df.iloc[148]
+
+    assert df.index[161] == "Heavy goods vehicles"
+    ct_totals["load factor Heavy duty vehicles"] = df.iloc[161]
+
     return pd.DataFrame(ct_totals)
 
 
@@ -637,6 +657,7 @@ def build_idees(countries: list[str]) -> pd.DataFrame:
     patterns = [
         "Number.*",
         "mio km-driven.*",
+        "load factor.*",
         ".*space efficiency",
         ".*water efficiency"
     ]
@@ -737,6 +758,10 @@ def build_energy_totals(
         "mio km-driven Motor coaches, buses and trolley buses",
         "mio km-driven Heavy duty vehicles",
         "mio km-driven Rail",
+        "mio km-driven Rail passenger",
+        "mio km-driven Rail freight",
+        "load factor Rail passenger",
+        "load factor Rail freight"
         ]
     to_drop = to_drop.append(pd.Index(drop_columns))
 
@@ -1251,6 +1276,8 @@ def build_transport_data(
                 "mio km-driven Motor coaches, buses and trolley buses",
                 "mio km-driven Heavy duty vehicles",
                 "mio km-driven Rail",
+                "mio km-driven Rail passenger",
+                "mio km-driven Rail freight"
     ]
 
     # first collect number of cars
@@ -1302,15 +1329,24 @@ def build_transport_data(
 
     # collect average fuel efficiency in MWh/100km, taking passenger car efficiency in TWh/100km
     transport_data["average fuel efficiency"] = idees["passenger car efficiency"] * 1e6
+    stats = [
+        "average fuel efficiency",
+        "load factor Rail passenger",
+        "load factor Rail freight",
+        "load factor Heavy duty vehicles",
+        "load factor Motor coaches, buses and trolley buses",
+    ]
+    transport_data[stats[1:]] = idees[stats[1:]]
 
-    missing = transport_data.index[transport_data["average fuel efficiency"].isna()]
-    if not missing.empty:
-        logger.info(
-            f"Missing data on fuel efficiency from:\n{list(missing)}\nFilling gaps with averaged data."
-        )
+    for stat in stats:
+        missing = transport_data.index[transport_data[stat].isna()]
+        if not missing.empty:
+            logger.info(
+                f"Missing data on {stat} from:\n{list(missing)}\nFilling gaps with averaged data."
+            )
 
-        fill_values = transport_data["average fuel efficiency"].mean()
-        transport_data.loc[missing, "average fuel efficiency"] = fill_values
+            fill_values = transport_data[stat].mean()
+            transport_data.loc[missing, stat] = fill_values
 
     return transport_data
 
