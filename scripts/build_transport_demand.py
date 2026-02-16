@@ -30,16 +30,13 @@ def extend_segment_distribution(eurostat_distr_fn, pop_layout, year):
     'LOR': 'Heavy duty vehicles',
     'TRC': 'Heavy duty vehicles',
     'TRL_STRL': 'Heavy duty vehicles',
-    # 'UTL': # checksum?
     'VG_LE3P5': 'Light duty vehicles',
     'SPE': 'Heavy duty vehicles'
     }
-    # ['CAR', 'MOTO', 'BUS_TOT', 'LOR', 'TRC', 'TRL_STRL', 'UTL', 'VG_LE3P5', 'SPE']
-    # ['Passenger cars', 'Motorcycles', 'Motor coaches, buses and trolley buses', 'Lorries', 'Road Tractors', 'Trailers and semi-trailers', 'Total utility vehicles', 'Goods road motor vehicles <= 3.5 tonnes', 'Special Vehicles']
 
     # Read Eurostat distribution data and keep only entries with unit == "NR"
-    eurostat_data = pd.read_csv(eurostat_distr_fn)  # , index_col=[0, 1])
-    # keep only 'NR' units
+    eurostat_data = pd.read_csv(eurostat_distr_fn)
+    # keep only 'NR' counts
     to_drop = ['freq', 'unit']
     # drop columns explicitly and ignore if any are missing
     eurostat_data = eurostat_data[eurostat_data["unit"] == "NR"].drop(columns=to_drop, errors="ignore")
@@ -50,7 +47,7 @@ def extend_segment_distribution(eurostat_distr_fn, pop_layout, year):
     ed = ed.rename(columns={'geo\\TIME_PERIOD': 'geo'})
 
     if year_col not in ed.columns:
-        raise KeyError(f'year {year} not found in eurostat data columns')
+        logger.warning(f'year {year} not found in eurostat vehicle stock distribution columns')
 
     ed_year = ed[['vehicle', 'geo', year_col]].rename(columns={year_col: 'count'})
 
@@ -62,48 +59,50 @@ def extend_segment_distribution(eurostat_distr_fn, pop_layout, year):
     ed_year = ed_year.dropna(subset=['segment'])
 
     # segments of interest
-    seg = ['Passenger cars', 'Powered two-wheelers', 'Motor coaches, buses and trolley buses', 'Light duty vehicles', 'Heavy duty vehicles']
-    # keep only rows that map to segments we care about
-    ed_year = ed_year[ed_year['segment'].isin(seg)]
+    segments = ['Passenger cars',
+                'Powered two-wheelers',
+                'Motor coaches, buses and trolley buses',
+                'Light duty vehicles',
+                'Heavy duty vehicles'
+                ]
+    ed_year = ed_year[ed_year['segment'].isin(segments)]
 
-    # pivot to have counts per geo per segment
-    # group by (geo, segment) and sum so that multiple vehicle codes mapping to the same
-    # segment will be combined.
-    pivot = ed_year.groupby(['geo', 'segment'])['count'].sum().unstack()
+    # counts_per_geo to have counts per geo per segment
+    # group by (geo, segment) to combine multiple vehicle codes mapping to the same segment will be combined
+    counts_per_geo = ed_year.groupby(['geo', 'segment'])['count'].sum().unstack()
     # make sure all segment columns exist
-    for s in seg:
-        if s not in pivot.columns:
-            pivot[s] = np.nan
+    for s in segments:
+        if s not in counts_per_geo.columns:
+            counts_per_geo[s] = np.nan
 
-    # reindex pivot to the pop_layout nodes (names)
-    pivot = pivot.reindex(pop_layout.index)
+    # reindex counts_per_geo to the pop_layout nodes (names)
+    counts_per_geo = counts_per_geo.reindex(pop_layout.index)
 
     # fill missing nodes per country with the per-country mean for that segment
-    for s in seg:
+    for s in segments:
         for ct, group in pop_layout.groupby('ct'):
             idx = group.index
-            vals = pivot.loc[idx, s]
+            vals = counts_per_geo.loc[idx, s]
             mean = vals.dropna().mean()
             if np.isnan(mean):
                 # fallback to overall mean for this segment
-                mean = pivot[s].dropna().mean()
-            pivot.loc[idx, s] = vals.fillna(mean)
+                mean = counts_per_geo[s].dropna().mean()
+            counts_per_geo.loc[idx, s] = vals.fillna(mean)
 
     # compute fractions per country for each segment and add to pop_layout
-    fractions = pd.DataFrame(index=pop_layout.index, columns=[f'frac {x}' for x in seg], dtype=float)
+    fractions = pd.DataFrame(index=pop_layout.index, columns=[f'frac {x}' for x in segments], dtype=float)
     for ct, group in pop_layout.groupby('ct'):
         idx = group.index
-        sub = pivot.loc[idx, seg].astype(float)
+        sub = counts_per_geo.loc[idx, segments].astype(float)
         totals = sub.sum(axis=0)
         frac = sub.div(totals.replace(0, np.nan), axis=1)
         # if a segment total is zero, distribute equally among nodes
-        for s in seg:
+        for s in segments:
             if totals[s] == 0 or np.isnan(totals[s]):
                 frac[s] = 1.0 / len(idx)
         frac = frac.fillna(1.0 / len(idx))
 
-        #
-        for s in seg:
+        for s in segments:
             col = f'frac {s}'
             fractions.loc[idx, col] = frac[s].values
 
@@ -123,8 +122,8 @@ def build_nodal_transport_data(fn, pop_layout, year):
     nodal_transport_data = transport_data.loc[pop_layout.ct].fillna(0.0)
     nodal_transport_data.index = pop_layout.index
 
-    # identify columns that represent vehicle/km counts (not efficiencies)
-    car_cols = list(transport_data.columns[~transport_data.columns.str.contains("efficiency")])
+    # add nodal transport data for specified segments - avoid "efficiency" and "load factor" columns
+    car_cols = transport_data.columns[~transport_data.columns.str.contains("efficiency|load factor")]
 
     # segments we expect and how they appear in transport_data column names
     segments = [
@@ -162,11 +161,8 @@ def build_nodal_transport_data(fn, pop_layout, year):
     if 'fraction' in pop_layout.columns and len(rail_cols) > 0:
         nodal_transport_data[rail_cols] = nodal_transport_data[rail_cols].mul(pop_layout['fraction'], axis=0)
 
-    # optionally: other unmatched columns remain unchanged (if you prefer different behavior, we can change this)
-
-    # fill missing fuel efficiency with average data (unchanged)
-    nodal_transport_data.loc[
-        nodal_transport_data.get("average fuel efficiency", 0.0) == 0.0,
+    # fill missing stats with average data
+    stats = [
         "average fuel efficiency",
         "load factor Rail passenger",
         "load factor Rail freight",
@@ -388,23 +384,12 @@ if __name__ == "__main__":
         snakemake.input.traffic_data_Lfw,
         snakemake.input.traffic_data_Lkw,
         snakemake.input.traffic_data_Bus,
-        snakemake.input.traffic_data_Pkw,
-        snakemake.input.traffic_data_Mot,
-        snakemake.input.traffic_data_Lfw,
-        snakemake.input.traffic_data_Lkw,
-        snakemake.input.traffic_data_Bus,
-
         snakemake.input.temp_air_total,
         nodes,
         nodal_transport_data,
     )
 
     avail_profile = bev_availability_profile(
-        snakemake.input.traffic_data_Pkw,
-        snakemake.input.traffic_data_Mot,
-        snakemake.input.traffic_data_Lfw,
-        snakemake.input.traffic_data_Lkw,
-        snakemake.input.traffic_data_Bus,
         snakemake.input.traffic_data_Pkw,
         snakemake.input.traffic_data_Mot,
         snakemake.input.traffic_data_Lfw,
